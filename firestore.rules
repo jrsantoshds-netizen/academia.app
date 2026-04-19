@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} { allow read, write: if false; }
+
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); 
+    }
+
+    // Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['displayName', 'email', 'role', 'createdAt', 'updatedAt']) 
+             && data.displayName is string 
+             && data.email is string
+             && data.role in ['athlete', 'admin']
+             && data.createdAt is timestamp
+             && data.updatedAt is timestamp;
+    }
+
+    function isValidSession(data) {
+       return data.keys().hasAll(['name', 'duration', 'volume', 'completedAt'])
+              && data.name is string
+              && data.duration is number
+              && data.volume is number
+              && data.completedAt is timestamp;
+    }
+    
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && request.auth.uid == adminId;
+      allow list, write: if false; // Admins managed through console
+    }
+
+    match /users/{userId} {
+      // Allow read if owner or admin
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin(); // Only admins can list users
+      
+      // Strict creation
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId 
+                    && isValidUser(incoming()) 
+                    && incoming().role == 'athlete' // User can't self-promote
+                    && incoming().createdAt == request.time
+                    && incoming().updatedAt == request.time;
+      
+      // Strict update
+      allow update: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin()) 
+                    && isValidUser(incoming())
+                    && (isAdmin() || (incoming().role == existing().role && incoming().createdAt == existing().createdAt))
+                    && incoming().updatedAt == request.time
+                    && incoming().diff(existing()).affectedKeys().hasAny(['displayName', 'weight', 'height', 'objective', 'streak', 'photoURL', 'updatedAt']);
+                    
+      match /sessions/{sessionId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(sessionId) && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+        
+        allow create: if isSignedIn() && isValidId(userId) && isValidId(sessionId) && request.auth.uid == userId 
+                      && isValidSession(incoming());
+                      
+        allow update, delete: if false;
+      }
+    }
+
+    match /workouts/{workoutId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

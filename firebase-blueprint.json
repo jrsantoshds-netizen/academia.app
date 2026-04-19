@@ -1,0 +1,79 @@
+{
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "User profiles. Stores basic info, role, stats, and objectives."
+    },
+    "/workouts/{workoutId}": {
+      "schema": {
+        "$ref": "#/entities/WorkoutTemplate"
+      },
+      "description": "Predefined workout templates available to athletes."
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/WorkoutSession"
+      },
+      "description": "Completed workout sessions for a specific athlete."
+    }
+  },
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public profile and stats for the user",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["athlete", "admin"] },
+        "weight": { "type": "number" },
+        "height": { "type": "number" },
+        "objective": { "type": "string" },
+        "streak": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["displayName", "email", "role", "createdAt", "updatedAt"]
+    },
+    "WorkoutTemplate": {
+      "title": "Workout Template",
+      "description": "A predefined workout routine",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "focus": { "type": "string" },
+        "level": { "type": "string" },
+        "duration": { "type": "number" },
+        "exercises": { 
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "focus", "duration"]
+    },
+    "WorkoutSession": {
+      "title": "Workout Session",
+      "description": "A logged workout execution",
+      "type": "object",
+      "properties": {
+        "templateId": { "type": "string" },
+        "name": { "type": "string" },
+        "duration": { "type": "number" },
+        "volume": { "type": "number" },
+        "calories": { "type": "number" },
+        "completedAt": { "type": "number" },
+        "exercises": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "required": ["name", "duration", "volume", "completedAt"]
+    }
+  }
+}
